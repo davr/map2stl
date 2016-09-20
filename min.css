@@ -9,7 +9,7 @@
   font-weight: bold;
   font-family: Helvetica, Arial, Sans;
   border: thin solid black;
-  min-width: 410px;
+/*  min-width: 410px;*/
 }
 
 #header {
@@ -24,6 +24,7 @@
   background: white;
   width: 100%;
   height: 600px;
+/*  padding-bottom: 100%;*/
 
   top: 0px;
   bottom: 0px;

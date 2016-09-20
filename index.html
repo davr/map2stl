@@ -61,6 +61,37 @@
 
     <div class="container theme-showcase" role="main">
 
+    <div class="row">
+    <div class="col-sm-4 col-sm-push-8">
+        <div class="panel panel-default">
+            <div class="panel-heading">
+                <h3 class="panel-title">Settings</h3>
+            </div>
+            <div class="panel-body">
+                <form>
+                <div class="form-group">
+                    <label for="location">Location:</label>
+                    <input type="text" class="form-control" id="location" name="location" value="1 Front St, SF, CA">
+                </div>
+                <div class="form-group">
+                    <label for="radius">Radius (meters):</label>
+                    <input type="number" class="form-control" id="radius" name="radius" value="300">
+                </div>
+                <div class="form-group">
+                    <label for="width">Line Width (mm):</label>
+                    <input type="number" class="form-control" id="width" name="width" value="1">
+                </div>
+                <div class="form-group">
+                    <label for="height">Line Height (mm):</label>
+                    <input type="number" class="form-control" id="height" name="height" value="3">
+                </div>
+                <input type="button" class="btn btn-default" onclick="regenerate()" value="Update">
+                </form>
+            </div>
+        </div> <!-- /panel  -->
+
+    </div> <!-- /col -->
+        <div class="col-sm-8 col-sm-pull-4">
       <!--div class="page-header">
         <h1>Rendered</h1>
       </div-->
@@ -91,10 +122,28 @@
 
     var gComponents = [ { file: '/ruby/test.jscad' } ];
 
+    function regenerate() {
+      gProcessor.setStatus("Regenerating data <img id=busy src='imgs/busy.gif'>");
+      var url="http://davr.org/map2stl/osm.rb";
+      var data=$('form').serializeArray().reduce(function(obj,item) {
+          obj[item.name] = item.value;
+          return obj;          
+      },{});
+        $.ajax({
+            type: "POST",
+            url: url,
+            data: data,
+            success: function(data, status, jqXHR) {
+                gProcessor.setStatus("Rendering <img id=busy src='imgs/busy.gif'>");
+                gProcessor.viewer.setZoom(0.15);
+                gProcessor.setJsCad(data);
+            },
+            dataType: 'text'});
+    }
+
     function loadProcessor() {
       gProcessor = new OpenJsCad.Processor(document.getElementById("viewerContext"));
-
-      loadJSCAD(0);
+      gProcessor.setStatus("Ready.   ");
     }
 
     function loadJSCAD(choice) {
@@ -117,6 +166,9 @@
     }
   </script>
       </div>
+    </div>
+    </div> <!-- /row -->
+
 
 
     </div> <!-- /container -->
