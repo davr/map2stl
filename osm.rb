@@ -10,6 +10,7 @@ puts "Content-type: text/plain\r\n\r\n"
 
 $stderr.reopen($stdout)
 
+# utility function to look at the types of keys in a OSM api response
 def getKeys(arr)
     keys = {}
     if(arr.is_a?(Hash)) then
@@ -34,25 +35,33 @@ class OSM
         @url = URI('http://overpass.osm.rambler.ru/cgi/interpreter')
     end
 
+    # When storing coordinates, make sure they are in the proper order
     def coords=(coords)
         coords[0], coords[2] = [coords[0], coords[2]].minmax
         coords[1], coords[3] = [coords[1], coords[3]].minmax
         @coords = coords
     end
 
+    # Return an OSM Overpass API command in the proper format given our
+    # coordinate bounding box
     def params()
         return { 'data' => "[out:json];(node(#{@coords.join(', ')});<;);out;" }
     end
 
+    # Create a URI object based off of a URL and parameters object
     def uri(url,params)
         uri = URI(url)
         uri.query = URI.encode_www_form(params)
         return uri
     end
 
+    # Does the main brunt of the work
     def loadData(lineW, lineH)
         lineW = 1.0 if not lineW
         lineH = 3.0 if not lineH
+
+        # Check if OSM data has been cached & load it, otherwise
+        # call their API & save to cache
         md5 = Digest::MD5.hexdigest(@coords.to_s)
         cache = "cache/#{md5}.js"
         if File.exist?(cache) then
@@ -72,6 +81,10 @@ class OSM
         @bbox = nil
         @hwy = {}
         @ways = {}
+
+        # Loop through the OSM data and extract two things:
+        # 'node' -- individual coordinates
+        # 'way' -- chains of nodes, represents roads, buildings, rivers, etc
         @data['elements'].each do |item|
             case item['type']
             when 'node'
@@ -100,6 +113,7 @@ class OSM
 
         out = $stdout #File.open("test.jscad","w")
 
+        # Generate the openjscad file to draw the map
         out.write( 
 <<INITCODE
 function main() {
@@ -110,10 +124,17 @@ function main() {
 INITCODE
             )
         @ways.each do |id, way|
+            # skip really short / small things
             if way['nodes'].length < 2 then next end
+
+            # skip unknown things
             if not way.key?('tags') then next end
+
+            # skip things that aren't roads
             if not way['tags'].key?('highway') then next end
             pts = []
+
+            # rescale each lat/long coordinate to fit in a 100x100 mm box
             way['nodes'].each do |nodeid|
                 pts << scaleNode(@nodes[nodeid]) if @nodes.key?(nodeid)
             end
@@ -121,6 +142,8 @@ INITCODE
 #                puts("Short way?")
 #                pp pts
 #            end
+            
+            # output a line of JS to draw this object
             if pts.length > 1 then
                 out.write("new CSG.Path2D(/*way:#{id}*/#{pts},false).rectangularExtrude(w,h,f,false),") 
             end
@@ -138,11 +161,13 @@ INITCODE
         return scale(node['lat'],node['lon'])
     end
 
-
+    # scale / translate coordinates based on our stored parameters
     def scale(lat,lon)
         return [(lat+@xlate[0])*@scale[0]-50, 50-(lon+@xlate[1])*@scale[1]]
     end
 
+    # given arbitrary string, call google maps geocoding API to get coordinates
+    # then save a bounding box around that location given a radius in meters
     def geocodeLocation(loc, radius)
         md5 = Digest::MD5.hexdigest("#{loc} #{radius}")
         cache = "cache/#{md5}.js"
@@ -175,6 +200,8 @@ INITCODE
         rad * 180.0 / Math::PI
     end
 
+    # given a single lat/lon coordinate, generate a bounding box
+    # a given distance around it (math due to earth not being flat)
     def locationToBounds(lat, lon, dist)
         earth = 6371000.0
         d = dist
